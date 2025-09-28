@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jocs Medievals</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Tone.js for sound effects -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <style>
+        :root {
+            --primary-bg: #1e1b4b;
+            --secondary-bg: #312e81;
+            --accent-color: #f59e0b;
+            --text-light: #e0e7ff;
+            --border-color: #4f46e5;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--primary-bg);
+            background-image: url('https://www.transparenttextures.com/patterns/dark-denim.png');
+            color: var(--text-light);
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+        .font-medieval {
+            font-family: 'Cinzel Decorative', cursive;
+        }
+        
+        @keyframes title-glow {
+            0%, 100% { text-shadow: 2px 2px 8px #000, 0 0 10px var(--accent-color); }
+            50% { text-shadow: 2px 2px 8px #000, 0 0 20px #facc15; }
+        }
+        .title-animated {
+            animation: title-glow 3s infinite ease-in-out;
+        }
+
+        .screen {
+            transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: absolute;
+            top: 0; left: 0;
+            padding: 1rem;
+        }
+        .screen.hidden {
+            opacity: 0;
+            transform: scale(0.95);
+            pointer-events: none;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem; border-radius: 0.5rem;
+            font-weight: bold; text-transform: uppercase;
+            transition: all 0.2s ease; border: none; cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2); color: white;
+        }
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px); box-shadow: 0 6px 8px rgba(0,0,0,0.3);
+        }
+        .btn:disabled {
+            cursor: not-allowed; opacity: 0.5;
+        }
+        .btn-green { background: linear-gradient(145deg, #22c55e, #16a34a); }
+        .btn-blue { background: linear-gradient(145deg, #3b82f6, #2563eb); }
+        .btn-primary { background: linear-gradient(145deg, #8b5cf6, #7c3aed); }
+        .btn-red { background: linear-gradient(145deg, #ef4444, #dc2626); }
+        
+        .card {
+            background-color: rgba(30, 27, 75, 0.8);
+            border: 2px solid var(--border-color);
+            border-radius: 1rem;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            padding: 2rem;
+            text-align: center;
+        }
+        
+        /* Pasapalabra Styles */
+        .rosco-wrapper { position: relative; width: clamp(300px, min(85vw, 85vh), 500px); height: clamp(300px, min(85vw, 85vh), 500px); margin: auto; }
+        .rosco-letter-wrapper { position: absolute; top: 50%; left: 50%; width: 10%; height: 10%; margin: -5%; transition: transform 0.3s ease; }
+        .rosco-letter { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: clamp(0.8rem, 3vmin, 1.5rem); font-weight: bold; border-radius: 50%; background-color: #4338ca; color: var(--text-light); border: 2px solid #6366f1; cursor: default; transition: all 0.4s ease; }
+        .rosco-letter.current { transform: scale(1.5); background-color: var(--accent-color); color: var(--primary-bg); border-color: #fbbf24; z-index: 10; box-shadow: 0 0 20px var(--accent-color); }
+        .rosco-letter.correct { background-color: #16a34a; color: white; border-color: #22c55e; }
+        .rosco-letter.incorrect { background-color: #dc2626; color: white; border-color: #ef4444; }
+        .rosco-letter.skipped { background-color: #2563eb; color: white; border-color: #3b82f6; }
+        @keyframes feedback-anim {
+            0% { opacity: 0; transform: translateY(20px) scale(0.8); }
+            20% { opacity: 1; transform: translateY(0) scale(1); }
+            80% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-20px) scale(0.8); }
+        }
+        #pasapalabra-feedback-message { animation: feedback-anim 1.5s ease-in-out forwards; }
+        
+        /* Quiz Styles */
+        .quiz-option { background-color: var(--secondary-bg); border: 2px solid var(--border-color); }
+        .quiz-option:hover:not(:disabled) { background-color: #4f46e5; }
+        .quiz-option.correct { background-color: #16a34a !important; border-color: #22c55e !important; }
+        .quiz-option.incorrect { background-color: #dc2626 !important; border-color: #ef4444 !important; }
+        
+        /* Word Search Styles */
+        #word-search-grid { display: grid; gap: 2px; background-color: var(--border-color); padding: 5px; border-radius: 8px; }
+        .grid-cell { width: 30px; height: 30px; display: flex; justify-content: center; align-items: center; background-color: var(--secondary-bg); cursor: pointer; user-select: none; font-weight: bold; transition: background-color 0.2s; }
+        .grid-cell.selected { background-color: #f59e0b; color: var(--primary-bg); }
+        .grid-cell.found { background-color: #16a34a; }
+        #word-search-list li.found { text-decoration: line-through; color: #6ee7b7; }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen">
+    <div id="main-container" class="w-full h-full relative">
+
+        <!-- ===== PANTALLA DEL MENÚ PRINCIPAL ===== -->
+        <div id="main-menu-screen" class="screen">
+            <div class="card w-full max-w-3xl">
+                <h1 class="text-5xl md:text-7xl font-medieval text-amber-400 mb-4 title-animated">Jocs Medievals</h1>
+                <p class="text-xl text-indigo-200 mb-8">Tria un repte per començar la teva aventura:</p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <button id="goto-pasapalabra" class="btn btn-primary font-medieval text-2xl h-24">Pasapalabra</button>
+                    <button id="goto-quiz" class="btn btn-primary font-medieval text-2xl h-24">Quiz Medieval</button>
+                    <button id="goto-word-search" class="btn btn-primary font-medieval text-2xl h-24">Sopa de Lletres</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== SECCIÓ PASAPALABRA ===== -->
+        <div id="pasapalabra-section" class="hidden">
+            <!-- Nivells Pasapalabra -->
+            <div id="pasapalabra-level-screen" class="screen">
+                <div class="card w-full max-w-2xl">
+                    <h1 class="text-5xl font-medieval text-amber-400 mb-2 title-animated">Pasapalabra</h1>
+                    <h2 class="text-2xl text-indigo-200 mb-6">Tria el teu destí, noble jugador:</h2>
+                    <div id="pasapalabra-level-buttons" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                         <div class="bg-black/20 p-4 rounded-lg">
+                            <h3 class="font-medieval text-2xl text-amber-300">Aprenent</h3>
+                            <p class="text-indigo-300 mb-2">Puntuació Màx: <span id="best-score-facil" class="font-bold text-white text-lg">0</span></p>
+                            <button data-level="facil" class="btn btn-primary text-xl w-full">Jugar</button>
+                        </div>
+                        <div class="bg-black/20 p-4 rounded-lg">
+                            <h3 class="font-medieval text-2xl text-amber-300">Cavaller</h3>
+                            <p class="text-indigo-300 mb-2">Puntuació Màx: <span id="best-score-normal" class="font-bold text-white text-lg">0</span></p>
+                            <button data-level="normal" class="btn btn-primary text-xl w-full">Jugar</button>
+                        </div>
+                        <div class="bg-black/20 p-4 rounded-lg">
+                            <h3 class="font-medieval text-2xl text-amber-300">Savi</h3>
+                            <p class="text-indigo-300 mb-2">Puntuació Màx: <span id="best-score-dificil" class="font-bold text-white text-lg">0</span></p>
+                            <button data-level="dificil" class="btn btn-primary text-xl w-full">Jugar</button>
+                        </div>
+                    </div>
+                    <button class="btn-back-main btn btn-red text-lg">Tornar al Menú</button>
+                </div>
+            </div>
+            <!-- Instruccions Pasapalabra -->
+            <div id="pasapalabra-instructions-screen" class="screen hidden">
+                <div class="card w-full max-w-2xl">
+                     <h1 class="text-4xl md:text-5xl font-medieval text-amber-400 mb-4">Instruccions del Repte</h1>
+                    <div class="text-left text-indigo-200 space-y-3 mb-8 text-lg">
+                        <p>⚔️ L'objectiu és completar el rosco encertant totes les paraules.</p>
+                        <p>❤️ Comences amb <strong>3 vides</strong>. Cada resposta incorrecta o temps esgotat et costarà una.</p>
+                        <p>⏱️ Tens <strong>30 segons</strong> per respondre cada paraula. Vigila el temps!</p>
+                        <p>📜 Si no saps una paraula, fes clic a <strong>"Pasapalabra"</strong> per deixar-la per a la següent ronda.</p>
+                    </div>
+                    <button id="pasapalabra-start-game-button" class="btn btn-green text-3xl font-medieval">Començar!</button>
+                </div>
+            </div>
+            <!-- Joc Pasapalabra -->
+            <div id="pasapalabra-game-screen" class="screen hidden flex-col justify-around">
+                 <header class="w-full max-w-4xl flex flex-col sm:flex-row justify-between items-center p-2 sm:p-4 rounded-xl bg-black/20 gap-2 sm:gap-0">
+                    <div class="flex items-center gap-3">
+                        <h2 class="text-lg sm:text-2xl font-medieval text-amber-400">Vides:</h2>
+                        <div id="pasapalabra-lives-container" class="flex gap-2"></div>
+                    </div>
+                    <div class="text-lg sm:text-2xl font-medieval text-amber-400">Punts: <span id="pasapalabra-score" class="font-bold text-2xl sm:text-4xl text-white">0</span></div>
+                    <div class="text-lg sm:text-2xl font-medieval text-amber-400">Temps: <span id="pasapalabra-timer" class="font-bold text-2xl sm:text-4xl text-white">30</span></div>
+                </header>
+                <main class="flex-grow flex items-center justify-center w-full">
+                    <div class="rosco-wrapper">
+                        <div id="pasapalabra-rosco-container"></div>
+                        <div id="pasapalabra-feedback-container" class="absolute inset-0 flex items-center justify-center pointer-events-none z-20"></div>
+                        <div id="pasapalabra-qa-container" class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <div class="w-10/12 max-w-sm text-center p-4 sm:p-6 bg-[#312e81]/80 rounded-2xl shadow-lg border-2 border-[#4f46e5] backdrop-blur-sm pointer-events-auto">
+                                <div class="mb-4 min-h-[100px] flex items-center justify-center">
+                                    <p class="text-sm sm:text-base text-indigo-100"><strong class="font-medieval text-lg sm:text-xl text-amber-400" id="pasapalabra-question-letter"></strong>. <span id="pasapalabra-question-text"></span></p>
+                                </div>
+                                <div class="flex flex-col gap-3">
+                                    <input type="text" id="pasapalabra-answer-input" class="text-center text-lg p-2 rounded-md border-2 border-[#6366f1] bg-[#1e1b4b] text-white w-full focus:outline-none focus:ring-2 focus:ring-[#818cf8]" placeholder="La teva resposta...">
+                                    <div class="flex gap-3 justify-center">
+                                        <button id="pasapalabra-submit-button" class="btn btn-green w-1/2 text-sm sm:text-base">Respondre</button>
+                                        <button id="pasapalabra-pasapalabra-button" class="btn btn-blue w-1/2 text-sm sm:text-base">Pasapalabra</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            </div>
+            <!-- Game Over Pasapalabra -->
+            <div id="pasapalabra-game-over-screen" class="screen hidden fixed inset-0 bg-black/70 backdrop-blur-md z-50">
+                <div class="card w-full max-w-lg">
+                     <h2 id="pasapalabra-game-over-title" class="text-4xl font-medieval text-amber-400 mb-4" style="text-shadow: 1px 1px 4px #000;"></h2>
+                    <p class="text-2xl mb-2">Puntuació final: <span id="pasapalabra-final-score" class="font-bold text-amber-400"></span></p>
+                    <p class="text-sm text-indigo-300 mb-4">(Fes clic en una paraula per veure la seva definició)</p>
+                    <div id="pasapalabra-results-summary" class="text-left mb-6 max-h-60 overflow-y-auto p-3 bg-black/20 rounded-lg grid grid-cols-2 sm:grid-cols-3 gap-2"></div>
+                    <button id="pasapalabra-play-again-button" class="btn btn-primary text-2xl font-medieval">Tornar a Jugar</button>
+                </div>
+            </div>
+             <!-- Modal per a definicions -->
+            <div id="pasapalabra-definition-modal" class="screen hidden fixed inset-0 bg-black/70 backdrop-blur-md z-50">
+                 <div class="card relative w-full max-w-md">
+                    <h3 id="pasapalabra-modal-word" class="text-3xl font-medieval text-amber-400 mb-4"></h3>
+                    <p id="pasapalabra-modal-definition" class="text-indigo-200 text-lg"></p>
+                    <button id="pasapalabra-modal-close-button" class="absolute top-2 right-2 text-2xl text-amber-400 hover:text-white">&times;</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== SECCIÓ QUIZ MEDIEVAL ===== -->
+        <div id="quiz-section" class="hidden">
+            <div class="screen">
+                <div class="card w-full max-w-2xl">
+                    <div id="quiz-start-screen">
+                        <h1 class="text-5xl font-medieval text-amber-400 mb-4 title-animated">Quiz Medieval</h1>
+                        <p class="text-xl text-indigo-200 mb-8">Posa a prova els teus coneixements sobre l'Edat Mitjana. <br>10 preguntes per demostrar si ets un veritable savi.</p>
+                        <button id="start-quiz-btn" class="btn btn-green font-medieval text-3xl">Començar Quiz</button>
+                        <button class="btn-back-main btn btn-red text-lg mt-4">Tornar al Menú</button>
+                    </div>
+                    <div id="quiz-game-screen" class="hidden w-full">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="font-medieval text-2xl text-amber-400">Pregunta <span id="quiz-question-number">1</span>/10</h2>
+                            <h2 class="font-medieval text-2xl text-amber-400">Punts: <span id="quiz-score">0</span></h2>
+                        </div>
+                        <p id="quiz-question-text" class="text-xl text-indigo-100 mb-6 min-h-[6rem] flex items-center justify-center"></p>
+                        <div id="quiz-options-container" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                    </div>
+                    <div id="quiz-end-screen" class="hidden">
+                        <h1 class="text-5xl font-medieval text-amber-400 mb-4 title-animated">Quiz Finalitzat!</h1>
+                        <p class="text-2xl text-indigo-100 mb-8">La teva puntuació final és: <strong id="quiz-final-score" class="text-4xl text-amber-400"></strong></p>
+                        <button id="quiz-play-again-btn" class="btn btn-green font-medieval text-2xl">Jugar de Nou</button>
+                        <button class="btn-back-main btn btn-red text-lg mt-4">Tornar al Menú</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== SECCIÓ SOPA DE LLETRES ===== -->
+        <div id="word-search-section" class="hidden">
+            <div class="screen">
+                <div class="card w-full max-w-4xl flex flex-col lg:flex-row gap-8 items-center">
+                    <div>
+                        <h1 class="text-4xl font-medieval text-amber-400 mb-4 title-animated">Sopa de Lletres</h1>
+                        <ul id="word-search-list" class="grid grid-cols-2 gap-x-6 gap-y-1 text-lg text-left text-indigo-200">
+                            <!-- Paraules a trobar (JS) -->
+                        </ul>
+                         <button class="btn-back-main btn btn-red text-lg mt-6">Tornar al Menú</button>
+                    </div>
+                    <div id="word-search-grid" class="touch-none">
+                        <!-- Graella (JS) -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+
+    <script>
+        // --- SCRIPT GENERAL I NAVEGACIÓ ---
+        document.addEventListener('DOMContentLoaded', () => {
+            const screens = {
+                mainMenu: document.getElementById('main-menu-screen'),
+                pasapalabra: document.getElementById('pasapalabra-section'),
+                quiz: document.getElementById('quiz-section'),
+                wordSearch: document.getElementById('word-search-section'),
+            };
+
+            const showGameSection = (sectionName) => {
+                Object.values(screens).forEach(s => s.classList.add('hidden'));
+                if(screens[sectionName]) {
+                    screens[sectionName].classList.remove('hidden');
+                    // Mostrem la primera pantalla de la secció
+                    const firstScreen = screens[sectionName].querySelector('.screen');
+                    if(firstScreen) {
+                       screens[sectionName].querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+                       firstScreen.classList.remove('hidden');
+                    }
+                }
+            };
+
+            document.getElementById('goto-pasapalabra').addEventListener('click', () => {
+                showGameSection('pasapalabra');
+                pasapalabraGame.init();
+            });
+            document.getElementById('goto-quiz').addEventListener('click', () => {
+                showGameSection('quiz');
+                quizGame.init();
+            });
+            document.getElementById('goto-word-search').addEventListener('click', () => {
+                showGameSection('wordSearch');
+                wordSearchGame.init();
+            });
+
+            document.querySelectorAll('.btn-back-main').forEach(btn => {
+                btn.addEventListener('click', () => showGameSection('mainMenu'));
+            });
+        });
+        
+        // ===== LÒGICA DEL JOC: PASAPALABRA =====
+        const pasapalabraGame = {
+            dom: {},
+            wordLists: {
+                 facil: [
+                    { letter: "A", word: "ARTESANS", definition: "Treballadors manuals que tenien un ofici, com fuster o ferrer (p.14)." },
+                    { letter: "B", word: "BURGESIA", definition: "Nova classe social de les ciutats formada per mercaders i artesans (p.50)." },
+                    { letter: "C", word: "CLERGAT", definition: "Estament privilegiat format pels membres de l'Església (p.14)." },
+                    { letter: "E", word: "ESGLÉSIA", definition: "Institució religiosa molt poderosa que controlava la cultura i la vida social (p.10)." },
+                    { letter: "F", word: "FEUDALISME", definition: "Sistema d'organització social basat en la relació entre senyors i vassalls (p.11)." },
+                    { letter: "G", word: "GÒTIC", definition: "Estil artístic de la Baixa Edat Mitjana, caracteritzat per l'arc apuntat (p.32)." },
+                    { letter: "I", word: "IMPREMTA", definition: "Invenció de finals de l'Edat Mitjana que permetia copiar llibres ràpidament (p.28)." },
+                    { letter: "J", word: "JOGLARS", definition: "Artistes que entretenien la gent amb cançons i històries (p.28)." },
+                    { letter: "L", word: "LLATÍ", definition: "Llengua en què s'escrivien els llibres i es feien les misses (p.27)." },
+                    { letter: "M", word: "MONESTIR", definition: "Lloc on vivien els monjos, dedicats a la pregària i al treball (p.26)." },
+                    { letter: "N", word: "NOBLESA", definition: "Estament privilegiat format per comtes i cavallers, dedicats a la guerra (p.14)." },
+                    { letter: "P", word: "PAGESOS", definition: "La majoria de la població, que treballaven la terra dels senyors (p.14)." },
+                    { letter: "R", word: "REI", definition: "Màxim governant d'un regne (p.14)." },
+                    { letter: "S", word: "SENYOR", definition: "Noble que posseïa terres i tenia vassalls al seu servei (p.41)." },
+                    { letter: "T", word: "TROBADORS", definition: "Poetes i músics, normalment nobles, que componien cançons d'amor (p.28)." },
+                    { letter: "U", word: "UNIVERSITATS", definition: "Nous centres d'estudi que van aparèixer a les ciutats a la Baixa Edat Mitjana (p.50)." },
+                    { letter: "V", word: "VIDA", definition: "(Conté la V) L'esperança de ... a l'Europa feudal era molt curta, entre 35 i 40 anys (p.10)." },
+                ],
+                normal: [
+                    { letter: "A", word: "ARQUITECTURA", definition: "Art de construir edificis, com esglésies i catedrals (p.17)." },
+                    { letter: "B", word: "BELLATORES", definition: "Nom en llatí per a 'els que lluiten', és a dir, la noblesa (p.15)." },
+                    { letter: "C", word: "CASTELL", definition: "Edifici fortificat on vivien els nobles i reis (p.28)." },
+                    { letter: "E", word: "ESTAMENT", definition: "Cadascun dels grups socials tancats de la societat feudal (p.14)." },
+                    { letter: "F", word: "FEU", definition: "Conjunt de terres que un rei o un gran noble concedia a un vassall (p.12)." },
+                    { letter: "G", word: "GUERRA", definition: "Juntament amb la fam i les epidèmies, era un fet quotidià a l'època (p.10)." },
+                    { letter: "H", word: "HOMENATGE", definition: "Cerimònia en què un vassall s'agenollava davant del rei i li prometia fidelitat (p.12)." },
+                    { letter: "I", word: "INVESTIDURA", definition: "Cerimònia en què el rei entregava el feu al seu nou vassall (p.12)." },
+                    { letter: "L", word: "LABORATORES", definition: "Nom en llatí per a 'els que treballen', és a dir, el tercer estament (p.16)." },
+                    { letter: "M", word: "MORTALITAT", definition: "Era molt elevada, sobretot entre dones durant el part i infants (p.9)." },
+                    { letter: "O", word: "ORATORES", definition: "(Conté la O) Nom en llatí per a 'els que resen', és a dir, el clergat (p.15)." },
+                    { letter: "P", word: "PESTA", definition: "Epidèmia com la ... Negra, que va causar una gran crisi a la Baixa Edat Mitjana (p.51)." },
+                    { letter: "R", word: "ROMÀNIC", definition: "Estil artístic de l'Alta Edat Mitjana, amb murs gruixuts i arcs de mig punt (p.32)." },
+                    { letter: "S", word: "SERVITUD", definition: "Condició d'un camperol que jurava obediència a un noble a canvi de protecció (p.41)." },
+                    { letter: "V", word: "VASSALLATGE", definition: "Pacte de fidelitat personal entre un senyor i el seu vassall (p.12)." },
+                    { letter: "X", word: "EXEMPTS", definition: "(Conté la X) La noblesa i el clergat estaven ... de pagar impostos (p.15)." },
+                ],
+                dificil: [
+                    { letter: "A", word: "ABSIS", definition: "Part d'una església, generalment semicircular, on es troba l'altar (p.45)." },
+                    { letter: "C", word: "CAPITELLS", definition: "Part superior d'una columna que sovint estava decorada amb escultures (p.46)." },
+                    { letter: "F", word: "FRESCS", definition: "Tècnica de pintura mural realitzada sobre una capa de calç humida (p.37)." },
+                    { letter: "G", word: "GIROLA", definition: "Passadís que envolta l'altar major i permet als fidels caminar al seu voltant (p.45)." },
+                    { letter: "H", word: "HIERÀTIQUES", definition: "Adjectiu que descriu les figures rígides i sense expressió de l'escultura romànica (p.47)." },
+                    { letter: "M", word: "MOSAICS", definition: "Obra artística feta amb petites peces anomenades tessel·les (p.37)." },
+                    { letter: "O", word: "ORFEBRERIA", definition: "Art de treballar objectes amb metalls preciosos com l'or o l'argent (p.37)." },
+                    { letter: "P", word: "POLICROMIA", definition: "Pràctica de pintar de diversos colors les escultures o parts d'un edifici (p.47)." },
+                    { letter: "R", word: "RETAULES", definition: "Obra d'art de fusta o pedra que es col·locava darrere de l'altar (p.37)." },
+                    { letter: "S", word: "SIMBÒLICA", definition: "Característica de l'art romànic, que donava més importància al missatge que al realisme (p.43)." },
+                    { letter: "T", word: "TRANSSEPTE", definition: "Nau que creua la nau principal d'una església i li dona forma de creu (p.45)." },
+                    { letter: "V", word: "VITRALLS", definition: "Finestral decorat amb vidres de colors, molt comú a l'arquitectura gòtica (p.37)." },
+                    { letter: "X", word: "TEXTOS", definition: "(Conté la X) Els monjos es dedicaven a copiar ... sagrats als escriptoris dels monestirs (p.48)." },
+                    { letter: "Z", word: "BIZANTINA", definition: "(Conté la Z) Civilització que va ocupar l'antic Imperi Romà d'Orient (p.5)." }
+                ]
+            },
+            gameData: [],
+            currentLevel: '',
+            currentIndex: 0,
+            lives: 3,
+            score: 0,
+            timerInterval: null,
+            sounds: {},
+            initialized: false,
+
+            init() {
+                if(this.initialized) {
+                    this.showScreen('level');
+                    this.displayBestScores();
+                    return;
+                }
+                this.cacheDom();
+                this.initSounds();
+                this.bindEvents();
+                this.displayBestScores();
+                this.initialized = true;
+            },
+
+            cacheDom() {
+                this.dom.screens = {
+                    level: document.getElementById('pasapalabra-level-screen'),
+                    instructions: document.getElementById('pasapalabra-instructions-screen'),
+                    game: document.getElementById('pasapalabra-game-screen'),
+                    gameOver: document.getElementById('pasapalabra-game-over-screen'),
+                    definitionModal: document.getElementById('pasapalabra-definition-modal')
+                };
+                this.dom.levelButtons = document.querySelectorAll('#pasapalabra-level-buttons button[data-level]');
+                this.dom.startGameButton = document.getElementById('pasapalabra-start-game-button');
+                this.dom.playAgainButton = document.getElementById('pasapalabra-play-again-button');
+                this.dom.roscoContainer = document.getElementById('pasapalabra-rosco-container');
+                this.dom.livesContainer = document.getElementById('pasapalabra-lives-container');
+                this.dom.scoreDisplay = document.getElementById('pasapalabra-score');
+                this.dom.timerDisplay = document.getElementById('pasapalabra-timer');
+                this.dom.questionLetterDisplay = document.getElementById('pasapalabra-question-letter');
+                this.dom.questionTextDisplay = document.getElementById('pasapalabra-question-text');
+                this.dom.answerInput = document.getElementById('pasapalabra-answer-input');
+                this.dom.submitButton = document.getElementById('pasapalabra-submit-button');
+                this.dom.pasapalabraButton = document.getElementById('pasapalabra-pasapalabra-button');
+                this.dom.gameOverTitle = document.getElementById('pasapalabra-game-over-title');
+                this.dom.finalScoreDisplay = document.getElementById('pasapalabra-final-score');
+                this.dom.resultsSummary = document.getElementById('pasapalabra-results-summary');
+                this.dom.qaContainer = document.getElementById('pasapalabra-qa-container');
+                this.dom.modalWord = document.getElementById('pasapalabra-modal-word');
+                this.dom.modalDefinition = document.getElementById('pasapalabra-modal-definition');
+                this.dom.modalCloseButton = document.getElementById('pasapalabra-modal-close-button');
+                this.dom.feedbackContainer = document.getElementById('pasapalabra-feedback-container');
+            },
+
+            initSounds() {
+                this.dom.levelButtons.forEach(button => {
+                    button.disabled = true;
+                    button.innerHTML = `<span class="opacity-50">Carregant...</span>`;
+                });
+                 this.sounds = {
+                    correct: new Tone.Synth({ oscillator: { type: "triangle" }, envelope: { attack: 0.005, decay: 0.1, sustain: 0.3, release: 1 } }).toDestination(),
+                    incorrect: new Tone.MonoSynth({ oscillator: { type: "fmsquare" }, envelope: { attack: 0.01, decay: 0.4, sustain: 0.1, release: 0.5 } }).toDestination(),
+                    click: new Tone.MembraneSynth().toDestination(),
+                    start: new Tone.Player({
+                        url: "https://cdn.pixabay.com/audio/2022/09/23/audio_73133610c1.mp3",
+                        onload: () => this.dom.levelButtons.forEach(button => { button.disabled = false; button.textContent = 'Jugar'; }),
+                        onerror: () => this.dom.levelButtons.forEach(button => { button.disabled = false; button.textContent = 'Jugar'; })
+                    }).toDestination()
+                };
+            },
+
+            bindEvents() {
+                this.dom.levelButtons.forEach(button => button.addEventListener('click', () => this.selectLevel(button.dataset.level)));
+                this.dom.startGameButton.addEventListener('click', () => this.startGame());
+                this.dom.playAgainButton.addEventListener('click', () => {
+                    this.sounds.click.triggerAttackRelease("C4", "0.1s");
+                    this.displayBestScores();
+                    this.showScreen('level');
+                });
+                this.dom.submitButton.addEventListener('click', () => this.checkAnswer());
+                this.dom.answerInput.addEventListener('keyup', (e) => { if (e.key === 'Enter') this.checkAnswer(); });
+                this.dom.pasapalabraButton.addEventListener('click', () => this.skipQuestion());
+                this.dom.resultsSummary.addEventListener('click', (e) => {
+                    if(e.target.tagName === 'BUTTON') {
+                        this.sounds.click.triggerAttackRelease("C4", "0.1s");
+                        this.dom.modalWord.textContent = e.target.textContent;
+                        this.dom.modalDefinition.textContent = e.target.dataset.definition;
+                        this.showScreen('definitionModal');
+                    }
+                });
+                const closeModal = () => this.dom.screens.definitionModal.classList.add('hidden');
+                this.dom.modalCloseButton.addEventListener('click', closeModal);
+                this.dom.screens.definitionModal.addEventListener('click', (e) => { if(e.target === this.dom.screens.definitionModal) closeModal(); });
+            },
+
+            showScreen(screenName) {
+                Object.values(this.dom.screens).forEach(screen => screen.classList.add('hidden'));
+                if (this.dom.screens[screenName]) {
+                    this.dom.screens[screenName].classList.remove('hidden');
+                }
+            },
+            
+            getBestScore: (level) => localStorage.getItem(`bestScore_${level}`) || 0,
+            setBestScore(level, newScore) {
+                if (newScore > this.getBestScore(level)) {
+                    localStorage.setItem(`bestScore_${level}`, newScore);
+                }
+            },
+            displayBestScores() {
+                document.getElementById('best-score-facil').textContent = this.getBestScore('facil');
+                document.getElementById('best-score-normal').textContent = this.getBestScore('normal');
+                document.getElementById('best-score-dificil').textContent = this.getBestScore('dificil');
+            },
+
+            async selectLevel(level) {
+                await Tone.start();
+                this.sounds.click.triggerAttackRelease("C4", "0.1s");
+                this.currentLevel = level;
+                this.showScreen('instructions');
+            },
+
+            startGame() {
+                if (this.sounds.start.loaded) this.sounds.start.start();
+                this.gameData = this.wordLists[this.currentLevel].map(w => ({ ...w, status: 'pending' }));
+                this.lives = 3;
+                this.score = 0;
+                this.currentIndex = 0;
+                this.showScreen('game');
+                this.dom.scoreDisplay.textContent = this.score;
+                this.updateLives();
+                this.createRosco();
+                setTimeout(() => this.nextQuestion(), 100);
+            },
+            
+            nextQuestion() {
+                this.dom.qaContainer.style.opacity = '1';
+                this.dom.answerInput.disabled = false;
+                this.dom.submitButton.disabled = false;
+                this.dom.pasapalabraButton.disabled = false;
+                this.dom.answerInput.value = '';
+                this.dom.answerInput.focus();
+                
+                let nextIndex = this.gameData.findIndex((item, index) => index >= this.currentIndex && item.status === 'pending');
+                if (nextIndex === -1) nextIndex = this.gameData.findIndex(item => item.status === 'pending');
+                if (nextIndex === -1) nextIndex = this.gameData.findIndex((item, index) => index >= this.currentIndex && item.status === 'skipped');
+                if (nextIndex === -1) nextIndex = this.gameData.findIndex(item => item.status === 'skipped');
+                
+                if (nextIndex === -1) { this.endGame(true); return; }
+                this.currentIndex = nextIndex;
+                this.displayQuestion();
+            },
+
+            displayQuestion() {
+                const q = this.gameData[this.currentIndex];
+                this.dom.questionLetterDisplay.textContent = q.definition.startsWith("(Conté la") ? `Conté la ${q.letter}` : `Comença per ${q.letter}`;
+                this.dom.questionTextDisplay.textContent = q.definition;
+                document.querySelectorAll('.rosco-letter').forEach(el => el.classList.remove('current'));
+                document.getElementById(`letter-${q.letter}`).classList.add('current');
+                this.startTimer();
+            },
+
+            startTimer() {
+                 let timeLeft = 30;
+                this.dom.timerDisplay.textContent = timeLeft;
+                clearInterval(this.timerInterval);
+                this.timerInterval = setInterval(() => {
+                    timeLeft--;
+                    this.dom.timerDisplay.textContent = timeLeft;
+                    if (timeLeft <= 0) {
+                        clearInterval(this.timerInterval);
+                        this.showFeedback('Temps esgotat!', 'incorrect');
+                        this.handleIncorrectAnswer(true);
+                    }
+                }, 1000);
+            },
+            
+            checkAnswer() {
+                 clearInterval(this.timerInterval);
+                const userAnswer = this.dom.answerInput.value.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+                const correctAnswer = this.gameData[this.currentIndex].word.toLowerCase();
+                
+                if (userAnswer === correctAnswer) {
+                    this.sounds.correct.triggerAttackRelease("C5", "0.5s");
+                    this.showFeedback('Correcte!', 'correct');
+                    this.gameData[this.currentIndex].status = 'correct';
+                    this.score++;
+                    this.dom.scoreDisplay.textContent = this.score;
+                    document.getElementById(`letter-${this.gameData[this.currentIndex].letter}`).classList.add('correct');
+                } else {
+                    this.sounds.incorrect.triggerAttackRelease("F#3", "0.5s");
+                    this.showFeedback('Incorrecte!', 'incorrect');
+                    this.handleIncorrectAnswer(); 
+                    return;
+                }
+                this.prepareNextQuestion(1500);
+            },
+            
+            handleIncorrectAnswer(isTimeout = false) {
+                this.gameData[this.currentIndex].status = 'incorrect';
+                this.lives--;
+                this.updateLives();
+                document.getElementById(`letter-${this.gameData[this.currentIndex].letter}`).classList.add('incorrect');
+                
+                if (this.lives <= 0) setTimeout(() => this.endGame(false), 1500);
+                else this.prepareNextQuestion(1500);
+            },
+            
+            skipQuestion() {
+                this.sounds.click.triggerAttackRelease("C4", "0.1s");
+                clearInterval(this.timerInterval);
+                if (this.gameData[this.currentIndex].status === 'pending') {
+                   this.gameData[this.currentIndex].status = 'skipped';
+                   document.getElementById(`letter-${this.gameData[this.currentIndex].letter}`).classList.add('skipped');
+                }
+                this.currentIndex++;
+                this.nextQuestion();
+            },
+
+            prepareNextQuestion(delay) {
+                this.dom.qaContainer.style.opacity = '0';
+                this.dom.answerInput.disabled = true;
+                setTimeout(() => this.nextQuestion(), delay);
+            },
+            
+            endGame(isWinner) {
+                clearInterval(this.timerInterval);
+                this.setBestScore(this.currentLevel, this.score);
+                this.dom.finalScoreDisplay.textContent = this.score;
+                this.dom.gameOverTitle.textContent = isWinner ? (this.score === this.gameData.length ? "ROSCO COMPLETAT!" : "Ronda Acabada!") : "Has perdut les vides!";
+                this.dom.resultsSummary.innerHTML = '';
+                this.gameData.forEach(item => {
+                    if (item.status !== 'correct') {
+                         const btn = document.createElement('button');
+                         btn.textContent = item.word;
+                         btn.dataset.definition = item.definition;
+                         btn.className = `p-2 rounded text-white font-bold text-sm ${item.status === 'incorrect' ? 'bg-red-600/70 hover:bg-red-500/70' : 'bg-blue-600/70 hover:bg-blue-500/70'}`;
+                         this.dom.resultsSummary.appendChild(btn);
+                    }
+                });
+                this.showScreen('gameOver');
+            },
+
+            updateLives() {
+                this.dom.livesContainer.innerHTML = Array(3).fill(0).map((_, i) => `<span class="text-2xl sm:text-3xl ${i < this.lives ? '' : 'opacity-30'}">${i < this.lives ? '❤️' : '🖤'}</span>`).join('');
+            },
+
+            createRosco() {
+                 this.dom.roscoContainer.innerHTML = '';
+                 const r = this.dom.roscoContainer.parentElement.offsetWidth / 2 - 25;
+                 this.gameData.forEach((item, i) => {
+                     const angle = (i / this.gameData.length) * 2 * Math.PI - (Math.PI / 2);
+                     const wrapper = document.createElement('div');
+                     wrapper.className = 'rosco-letter-wrapper';
+                     wrapper.style.transform = `translate(${r*Math.cos(angle)}px, ${r*Math.sin(angle)}px)`;
+                     const letterDiv = document.createElement('div');
+                     letterDiv.id = `letter-${item.letter}`;
+                     letterDiv.className = 'rosco-letter';
+                     letterDiv.textContent = item.letter;
+                     wrapper.appendChild(letterDiv);
+                     this.dom.roscoContainer.appendChild(wrapper);
+                 });
+            },
+             showFeedback(message, type) {
+                const color = type === 'correct' ? 'text-green-400' : 'text-red-400';
+                this.dom.feedbackContainer.innerHTML = `<h2 id="pasapalabra-feedback-message" class="font-medieval text-5xl ${color}" style="text-shadow: 2px 2px 4px #000;">${message}</h2>`;
+                setTimeout(() => this.dom.feedbackContainer.innerHTML = '', 1500);
+            },
+        };
+
+        // ===== LÒGICA DEL JOC: QUIZ MEDIEVAL =====
+        const quizGame = {
+            questions: [
+                { q: "En quin any es considera que comença l'Edat Mitjana amb la caiguda de l'Imperi Romà?", a: "476 dC", o: ["1492 dC", "1066 dC", "800 dC"] },
+                { q: "Quina nova classe social, formada per mercaders i artesans, va sorgir a les ciutats a la Baixa Edat Mitjana?", a: "La burgesia", o: ["La noblesa", "El clergat", "Els serfs"] },
+                { q: "Com es deia en llatí l'estament dels 'que lluiten'?", a: "Bellatores", o: ["Oratores", "Laboratores", "Senatores"] },
+                { q: "Quin estil artístic es caracteritza per l'ús de l'arc de mig punt i murs gruixuts?", a: "Romànic", o: ["Gòtic", "Barroc", "Neoclàssic"] },
+                { q: "Quina era l'esperança de vida mitjana a l'Europa Feudal?", a: "35-40 anys", o: ["50-55 anys", "20-25 anys", "65-70 anys"] },
+                { q: "Com es deia el pacte de fidelitat personal entre un noble de rang superior i un altre de rang inferior?", a: "Vassallatge", o: ["Homenatge", "Servitud", "Feu"] },
+                { q: "Quina malaltia devastadora va assolar Europa a mitjan segle XIV?", a: "La Pesta Negra", o: ["La grip", "La verola", "El còlera"] },
+                { q: "Com es deien els artistes ambulants que recitaven poemes i cantaven cançons?", a: "Joglars", o: ["Trobadors", "Monjos", "Orfebres"] },
+                { q: "En quina llengua es feia l'educació i s'escrivien la majoria de llibres?", a: "Llatí", o: ["Grec", "Català", "Francès"] },
+                { q: "Quin estament social NO gaudia de privilegis?", a: "El tercer estament", o: ["La noblesa", "El clergat", "La monarquia"] }
+            ],
+            currentQuestionIndex: 0,
+            score: 0,
+            
+            init() {
+                document.getElementById('start-quiz-btn').addEventListener('click', () => this.start());
+                document.getElementById('quiz-play-again-btn').addEventListener('click', () => this.start());
+                // Show start screen if we navigate back to it
+                document.getElementById('quiz-start-screen').classList.remove('hidden');
+                document.getElementById('quiz-game-screen').classList.add('hidden');
+                document.getElementById('quiz-end-screen').classList.add('hidden');
+            },
+
+            start() {
+                this.currentQuestionIndex = 0;
+                this.score = 0;
+                this.questions.sort(() => 0.5 - Math.random());
+                document.getElementById('quiz-start-screen').classList.add('hidden');
+                document.getElementById('quiz-end-screen').classList.add('hidden');
+                document.getElementById('quiz-game-screen').classList.remove('hidden');
+                this.displayQuestion();
+            },
+
+            displayQuestion() {
+                if(this.currentQuestionIndex >= 10) {
+                    this.end();
+                    return;
+                }
+                const q = this.questions[this.currentQuestionIndex];
+                document.getElementById('quiz-question-number').textContent = this.currentQuestionIndex + 1;
+                document.getElementById('quiz-score').textContent = this.score;
+                document.getElementById('quiz-question-text').textContent = q.q;
+
+                const optionsContainer = document.getElementById('quiz-options-container');
+                optionsContainer.innerHTML = '';
+                const options = [q.a, ...q.o].sort(() => 0.5 - Math.random());
+                
+                options.forEach(option => {
+                    const button = document.createElement('button');
+                    button.textContent = option;
+                    button.className = 'btn quiz-option text-lg';
+                    button.onclick = () => this.checkAnswer(option);
+                    optionsContainer.appendChild(button);
+                });
+            },
+
+            checkAnswer(selectedOption) {
+                const isCorrect = selectedOption === this.questions[this.currentQuestionIndex].a;
+                const buttons = document.querySelectorAll('.quiz-option');
+                buttons.forEach(btn => {
+                    btn.disabled = true;
+                    if(btn.textContent === this.questions[this.currentQuestionIndex].a) {
+                        btn.classList.add('correct');
+                    } else if (btn.textContent === selectedOption) {
+                        btn.classList.add('incorrect');
+                    }
+                });
+
+                if(isCorrect) { this.score++; }
+                
+                setTimeout(() => {
+                    this.currentQuestionIndex++;
+                    this.displayQuestion();
+                }, 1500);
+            },
+
+            end() {
+                document.getElementById('quiz-game-screen').classList.add('hidden');
+                document.getElementById('quiz-end-screen').classList.remove('hidden');
+                document.getElementById('quiz-final-score').textContent = this.score;
+            }
+        };
+        
+        // ===== LÒGICA DEL JOC: SOPA DE LLETRES =====
+        const wordSearchGame = {
+            words: ["FEUDALISME", "CASTELL", "NOBLESA", "CLERGAT", "VASSALL", "JOGLAR", "ROMANIC", "GOTIC", "MONESTIR", "PAGESOS"],
+            gridSize: 15,
+            grid: [],
+            isSelecting: false,
+            selection: [],
+            foundWords: new Set(),
+
+            init() {
+                this.foundWords.clear();
+                this.createGrid();
+                this.renderGrid();
+                this.renderWordList();
+                this.addGridListeners();
+            },
+
+            createGrid() {
+                 const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+                 this.grid = Array(this.gridSize).fill(0).map(() => Array(this.gridSize).fill(0).map(() => letters.charAt(Math.floor(Math.random() * letters.length))));
+                 
+                 this.placeWord("FEUDALISME", 0, 0, 1, 0);
+                 this.placeWord("CASTELL", 2, 0, 0, 1);
+                 this.placeWord("NOBLESA", 4, 1, 1, 1);
+                 this.placeWord("CLERGAT", 0, 2, 0, 1);
+                 this.placeWord("VASSALL", 6, 0, 0, 1);
+                 this.placeWord("JOGLAR", 13, 3, -1, 0);
+                 this.placeWord("ROMANIC", 1, 13, 1, 0);
+                 this.placeWord("GOTIC", 10, 1, 0, 1);
+                 this.placeWord("MONESTIR", 14, 14, -1, -1);
+                 this.placeWord("PAGESOS", 1, 5, 1, 0);
+            },
+            
+            placeWord(word, r, c, dr, dc) {
+                for(let i = 0; i < word.length; i++) {
+                    if (this.grid[r + i*dr] && this.grid[r + i*dr][c + i*dc] !== undefined) {
+                        this.grid[r + i*dr][c + i*dc] = word[i];
+                    }
+                }
+            },
+
+            renderGrid() {
+                const gridEl = document.getElementById('word-search-grid');
+                gridEl.innerHTML = '';
+                gridEl.style.gridTemplateColumns = `repeat(${this.gridSize}, 1fr)`;
+                for (let r = 0; r < this.gridSize; r++) {
+                    for (let c = 0; c < this.gridSize; c++) {
+                        const cell = document.createElement('div');
+                        cell.className = 'grid-cell';
+                        cell.textContent = this.grid[r][c];
+                        cell.dataset.r = r;
+                        cell.dataset.c = c;
+                        gridEl.appendChild(cell);
+                    }
+                }
+            },
+            
+            renderWordList() {
+                const listEl = document.getElementById('word-search-list');
+                listEl.innerHTML = '';
+                this.words.forEach(word => {
+                    const li = document.createElement('li');
+                    li.id = `ws-word-${word}`;
+                    li.textContent = word;
+                    if(this.foundWords.has(word)) li.classList.add('found');
+                    listEl.appendChild(li);
+                });
+            },
+
+            addGridListeners() {
+                const gridEl = document.getElementById('word-search-grid');
+                gridEl.onmousedown = (e) => this.startSelection(e);
+                gridEl.onmouseover = (e) => this.dragSelection(e);
+                gridEl.onmouseup = () => this.endSelection();
+                gridEl.onmouseleave = () => this.endSelection(true);
+            },
+
+            startSelection(e) {
+                if (!e.target.classList.contains('grid-cell')) return;
+                this.isSelecting = true;
+                this.selection = [e.target];
+                e.target.classList.add('selected');
+            },
+
+            dragSelection(e) {
+                if (!this.isSelecting || !e.target.classList.contains('grid-cell') || this.selection.includes(e.target)) return;
+                this.selection.push(e.target);
+                e.target.classList.add('selected');
+            },
+
+            endSelection(cancelled = false) {
+                if(!this.isSelecting) return;
+                this.isSelecting = false;
+                
+                if (!cancelled) {
+                    let selectedWord = this.selection.map(cell => cell.textContent).join('');
+                    let reversedSelectedWord = [...selectedWord].reverse().join('');
+
+                    let foundWord = null;
+                    if (this.words.includes(selectedWord)) foundWord = selectedWord;
+                    else if (this.words.includes(reversedSelectedWord)) foundWord = reversedSelectedWord;
+
+                    if (foundWord && !this.foundWords.has(foundWord)) {
+                        this.foundWords.add(foundWord);
+                        this.selection.forEach(cell => cell.classList.add('found'));
+                        document.getElementById(`ws-word-${foundWord}`).classList.add('found');
+                    }
+                }
+                
+                this.selection.forEach(cell => cell.classList.remove('selected'));
+                this.selection = [];
+            }
+        };
+
+    </script>
+</body>
+</html>
+
